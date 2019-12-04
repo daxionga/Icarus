@@ -8,22 +8,23 @@
 
 
 //module fpgaminer_top (osc_clk, RxD, TxD, extminer_rxd, extminer_txd);
-module fpgaminer_top (osc_clk, RxD, TxD, led, extminer_rxd, extminer_txd, dip);
+module fpgaminer_top (osc_clk, RxD, TxD, led,  dip);//extminer_rxd, extminer_txd,
 //module fpgaminer_top (osc_clk, RxD, TxD, led);
 
    input osc_clk;
-	input [3:0]dip;
+	input dip;
 	wire hash_clk, dv_clk;
-   main_pll dcm23 (.CLK_IN1(osc_clk), .CLK_OUT1(hash_clk), .CLK_OUT2(dv_clk));
+   clk_wiz_0 clk2(.clk_in1(osc_clk), .hash_clk(hash_clk), .dv_clk(dv_clk));
    
    // Reset input buffers, both the workdata buffers in miners, and
    // the nonce receivers in hubs
    //input  ;
-   assign 	  reset = dip[0];
-	wire nonce_start = dip[1];
+   assign 	  reset = dip;
+	//wire nonce_start = dip[1];
 	wire miner_busy;
    
    // Nonce stride for all miners in the cluster, not just this hub.
+`define TOTAL_MINERS 1
 `ifdef TOTAL_MINERS
    parameter TOTAL_MINERS = `TOTAL_MINERS;
 `else
@@ -54,6 +55,7 @@ module fpgaminer_top (osc_clk, RxD, TxD, led, extminer_rxd, extminer_txd, dip);
    
    // It is OK to make extra/unused ports, but TOTAL_MINERS must be
    // correct for the actual number of hashers.
+`define EXT_PORTS 0
 `ifdef EXT_PORTS
    parameter EXT_PORTS = `EXT_PORTS;
 `else
@@ -78,24 +80,28 @@ module fpgaminer_top (osc_clk, RxD, TxD, led, extminer_rxd, extminer_txd, dip);
    wire 		serial_send;
    wire 		serial_busy;
    wire [31:0] 		golden_nonce;
-   serial_transmit sertx (.clk(dv_clk), .TxD(TxD), .send(serial_send), .busy(serial_busy), .word(golden_nonce));
+   serial_transmit sertx (.clk(dv_clk), .TxD(TxD), .send(new_nonces), .busy(serial_busy), .word(slave_nonces[31:0]));
 
-   hub_core #(.SLAVES(SLAVES)) hc (.hash_clk(dv_clk), .new_nonces(new_nonces), .golden_nonce(golden_nonce), .serial_send(serial_send), .serial_busy(serial_busy), .slave_nonces(slave_nonces));
+//   hub_core #(.SLAVES(SLAVES)) hc (.hash_clk(dv_clk), .new_nonces(new_nonces), .golden_nonce(golden_nonce), 
+//   .serial_send(serial_send), .serial_busy(serial_busy), .slave_nonces(slave_nonces));
 
    // Common workdata input for local miners
    wire [255:0] 	midstate, data2;
 	wire start_mining;
    serial_receive serrx (.clk(dv_clk), .RxD(RxD), .midstate(midstate), .data2(data2), .reset(reset), .RxRDY(start_mining));
-
+//        reg [7:0] GPout;
+//        async_receiver RX(.clk(dv_clk), .RxD(RxD), .RxD_data_ready(RxD_data_ready), .RxD_data(RxD_data));
+//        always @(posedge dv_clk) if(RxD_data_ready) GPout <= RxD_data;
+//        async_transmitter TX(.clk(dv_clk), .TxD(TxD), .TxD_start(RxD_data_ready), .TxD_data(GPout));
    // Local miners now directly connected
 	
 	wire got_ticket;
 	reg new_ticket;
 	reg [3:0]ticket_CS = 4'b0001;
 	reg [3:0]ticket_NS;
-
-	sha256_top M (.clk(hash_clk), .rst(reset), .midstate(midstate), .data2(data2), .golden_nonce(slave_nonces[31:0]), .got_ticket(got_ticket), .miner_busy(miner_busy), .nonce_start(nonce_start), .start_mining(start_mining));
-
+	sha256_top M (.clk(hash_clk), .rst(reset), .midstate(midstate), .data2(data2), .golden_nonce(slave_nonces[31:0]), 
+	.got_ticket(got_ticket), .miner_busy(miner_busy), .start_mining(start_mining));
+        
 
 always@ (posedge dv_clk)
 	begin
@@ -123,17 +129,18 @@ assign new_nonces[0] = new_ticket;
 
    // External miner ports, results appended to the same
    // slave_nonces/new_nonces as local ones
-   output [EXT_PORTS-1:0] extminer_txd;
-   input [EXT_PORTS-1:0]  extminer_rxd;
-   assign extminer_txd = {EXT_PORTS{RxD}};
+   //output [EXT_PORTS-1:0] extminer_txd;
+   //input [EXT_PORTS-1:0]  extminer_rxd;
+   //assign extminer_txd = {EXT_PORTS{RxD}};
       
-   generate
-      genvar 		  j;
-      for (j = LOCAL_MINERS; j < SLAVES; j = j + 1)
-	begin: for_ports
-   	   slave_receive slrx (.clk(dv_clk), .RxD(extminer_rxd[j-LOCAL_MINERS]), .nonce(slave_nonces[j*32+31:j*32]), .new_nonce(new_nonces[j]), .reset(reset));
-	end
-   endgenerate
+// generate
+//      genvar j;
+//      for (j = LOCAL_MINERS; j < SLAVES; j = j + 1)
+//	begin: for_ports
+//   	   slave_receive slrx (.clk(dv_clk), .RxD(extminer_rxd[j-LOCAL_MINERS]), 
+//.nonce(slave_nonces[j*32+31:j*32]), .new_nonce(new_nonces[j]), .reset(reset));
+//	end
+//   endgenerate
 
    output [3:0] led;
    //assign led[0] = |golden_nonce;
@@ -144,4 +151,3 @@ assign new_nonces[0] = new_ticket;
   pwm_fade pf1 (.clk(dv_clk), .trigger(|new_nonces[LOCAL_MINERS-1:0]), .drive(led[0]));
 
 endmodule
-

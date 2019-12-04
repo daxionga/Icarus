@@ -6,7 +6,7 @@ input clk, RxD;
 output RxD_data_ready;  // onc clock pulse when RxD_data is valid
 output [7:0] RxD_data;
 
-parameter ClkFrequency = 50000000; // 25MHz
+parameter ClkFrequency = 50000000; // 50MHz
 parameter Baud = 115200;
 
 // We also detect if a gap occurs in the received stream of characters
@@ -91,3 +91,5 @@ assign RxD_idle = gap_count[4];
 reg RxD_endofpacket; always @(posedge clk) RxD_endofpacket <= Baud8Tick & (gap_count==5'h0F);
 
 endmodule
+////////////////////////////////////////////////////////
+

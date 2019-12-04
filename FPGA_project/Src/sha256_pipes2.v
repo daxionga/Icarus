@@ -17,12 +17,12 @@
 !*/
 
 `define IDX(x) (((x)+1)*(32)-1):((x)*(32))
-`define E0(x) ( {{x}[1:0],{x}[31:2]} ^ {{x}[12:0],{x}[31:13]} ^ {{x}[21:0],{x}[31:22]} )
-`define E1(x) ( {{x}[5:0],{x}[31:6]} ^ {{x}[10:0],{x}[31:11]} ^ {{x}[24:0],{x}[31:25]} )
+`define E0(x) ( {x[1:0],x[31:2]} ^ {x[12:0],x[31:13]} ^ {x[21:0],x[31:22]} )
+`define E1(x) ( {x[5:0],x[31:6]} ^ {x[10:0],x[31:11]} ^ {x[24:0],x[31:25]} )
 `define CH(x,y,z) ( (z) ^ ((x) & ((y) ^ (z))) )
 `define MAJ(x,y,z) ( ((x) & (y)) | ((z) & ((x) | (y))) )
-`define S0(x) ( { {x}[6:4] ^ {x}[17:15], {{x}[3:0], {x}[31:7]} ^ {{x}[14:0],{x}[31:18]} ^ {x}[31:3] } )
-`define S1(x) ( { {x}[16:7] ^ {x}[18:9], {{x}[6:0], {x}[31:17]} ^ {{x}[8:0],{x}[31:19]} ^ {x}[31:10] } )
+`define S0(x) ( { x[6:4] ^ x[17:15], {x[3:0], x[31:7]} ^ {x[14:0],x[31:18]} ^ x[31:3] } )
+`define S1(x) ( {x[16:7] ^ x[18:9], {x[6:0], x[31:17]} ^ {x[8:0],x[31:19]} ^ x[31:10] } )
 
 module sha256_pipe2_base ( clk, i_state, i_data, out );
 
@@ -60,7 +60,7 @@ module sha256_pipe2_base ( clk, i_state, i_data, out );
 
 		reg [511:0] data;
 		reg [223:0] state;
-		reg [31:0] t1_p1;
+		reg [31:0] t1_p1, data15_p2;
 
 		if(i == 0) 
 		begin
@@ -79,23 +79,26 @@ module sha256_pipe2_base ( clk, i_state, i_data, out );
 		
 		    reg [511:0] data_buf;
 		    reg [223:0] state_buf;
-		    reg [31:0] data15_p1, data15_p2, data15_p3, t1;
-
+		    reg [31:0] data15_p1, data15_p3, t1;
+            reg [31:0] tmp1;
+            
 		    always @ (posedge clk)
 		    begin
 			data_buf <= S[i-1].data;
 			data[479:0] <= data_buf[511:32];
-
-			data15_p1 <= `S1( S[i-1].data[`IDX(15)] );											// 3
+            tmp1=S[i-1].data[`IDX(15)];
+			data15_p1 <= `S1( tmp1 );											// 3
 			data15_p2 <= data15_p1;														// 1
-			data15_p3 <= ( ( i == 1 ) ? `S1( S[i-1].data[`IDX(14)] ) : S[i-1].data15_p2 ) + S[i-1].data[`IDX(9)] + S[i-1].data[`IDX(0)];	// 3
-			data[`IDX(15)] <= `S0( data_buf[`IDX(1)] ) + data15_p3;										// 4
+			tmp1=S[i-1].data[`IDX(14)];
+			data15_p3 <= ( ( i == 1 ) ? `S1( tmp1 ) : S[i-1].data15_p2[`IDX(0)] ) + S[i-1].data[`IDX(9)] + S[i-1].data[`IDX(0)];	// 3
+			tmp1=data_buf[`IDX(1)];
+			data[`IDX(15)] <= `S0( tmp1 ) + data15_p3;										// 4
 			
     	    		state_buf <= S[i-1].state;													// 2
-			
-		        t1 <= `CH( S[i-1].state[`IDX(4)], S[i-1].state[`IDX(5)], S[i-1].state[`IDX(6)] ) + `E1( S[i-1].state[`IDX(4)] ) + S[i-1].t1_p1;	// 6
-
-	                state[`IDX(0)] <= `MAJ( state_buf[`IDX(0)], state_buf[`IDX(1)], state_buf[`IDX(2)] ) + `E0( state_buf[`IDX(0)] ) + t1;		// 7
+			tmp1=S[i-1].state[`IDX(4)];
+		        t1 <= `CH( S[i-1].state[`IDX(4)],S[i-1].state[`IDX(5)] , S[i-1].state[`IDX(6)] ) + `E1( tmp1 ) + S[i-1].t1_p1;	// 6
+            tmp1=state_buf[`IDX(0)];
+	                state[`IDX(0)] <= `MAJ(state_buf[`IDX(0)] , state_buf[`IDX(1)] , state_buf[`IDX(2)] ) + `E0( tmp1 ) + t1;		// 7
 			state[`IDX(1)] <= state_buf[`IDX(0)];												// 1
 			state[`IDX(2)] <= state_buf[`IDX(1)];												// 1
 			state[`IDX(3)] <= state_buf[`IDX(2)];												// 1
