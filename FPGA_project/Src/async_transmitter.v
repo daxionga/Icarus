@@ -21,7 +21,6 @@ generate
 	if(ClkFrequency<Baud*8 && (ClkFrequency % Baud!=0)) ASSERTION_ERROR PARAMETER_OUT_OF_RANGE("Frequency incompatible with requested Baud rate");
 endgenerate
 
-////////////////////////////////
 `ifdef SIMULATION
 wire BitTick = 1'b1;  // output one bit per clock cycle
 `else
@@ -66,7 +65,6 @@ endmodule
 module ASSERTION_ERROR();
 endmodule
 
-////////////////////////////////////////////////////////
 module BaudTickGen(
 	input clk, enable,
 	output tick  // generate a tick at the specified baud rate * oversampling

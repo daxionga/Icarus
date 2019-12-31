@@ -91,5 +91,3 @@ assign RxD_idle = gap_count[4];
 reg RxD_endofpacket; always @(posedge clk) RxD_endofpacket <= Baud8Tick & (gap_count==5'h0F);
 
 endmodule
-////////////////////////////////////////////////////////
-

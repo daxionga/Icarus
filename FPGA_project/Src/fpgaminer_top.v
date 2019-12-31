@@ -20,7 +20,6 @@ module fpgaminer_top (osc_clk, RxD, TxD, led,  dip);//extminer_rxd, extminer_txd
    // the nonce receivers in hubs
    //input  ;
    assign 	  reset = dip;
-	//wire nonce_start = dip[1];
 	wire miner_busy;
    
    // Nonce stride for all miners in the cluster, not just this hub.
@@ -82,17 +81,12 @@ module fpgaminer_top (osc_clk, RxD, TxD, led,  dip);//extminer_rxd, extminer_txd
    wire [31:0] 		golden_nonce;
    serial_transmit sertx (.clk(dv_clk), .TxD(TxD), .send(new_nonces), .busy(serial_busy), .word(slave_nonces[31:0]));
 
-//   hub_core #(.SLAVES(SLAVES)) hc (.hash_clk(dv_clk), .new_nonces(new_nonces), .golden_nonce(golden_nonce), 
-//   .serial_send(serial_send), .serial_busy(serial_busy), .slave_nonces(slave_nonces));
 
    // Common workdata input for local miners
    wire [255:0] 	midstate, data2;
 	wire start_mining;
    serial_receive serrx (.clk(dv_clk), .RxD(RxD), .midstate(midstate), .data2(data2), .reset(reset), .RxRDY(start_mining));
-//        reg [7:0] GPout;
-//        async_receiver RX(.clk(dv_clk), .RxD(RxD), .RxD_data_ready(RxD_data_ready), .RxD_data(RxD_data));
-//        always @(posedge dv_clk) if(RxD_data_ready) GPout <= RxD_data;
-//        async_transmitter TX(.clk(dv_clk), .TxD(TxD), .TxD_start(RxD_data_ready), .TxD_data(GPout));
+
    // Local miners now directly connected
 	
 	wire got_ticket;
@@ -126,21 +120,6 @@ always@ (posedge dv_clk)
 
 assign new_nonces[0] = new_ticket;
 
-
-   // External miner ports, results appended to the same
-   // slave_nonces/new_nonces as local ones
-   //output [EXT_PORTS-1:0] extminer_txd;
-   //input [EXT_PORTS-1:0]  extminer_rxd;
-   //assign extminer_txd = {EXT_PORTS{RxD}};
-      
-// generate
-//      genvar j;
-//      for (j = LOCAL_MINERS; j < SLAVES; j = j + 1)
-//	begin: for_ports
-//   	   slave_receive slrx (.clk(dv_clk), .RxD(extminer_rxd[j-LOCAL_MINERS]), 
-//.nonce(slave_nonces[j*32+31:j*32]), .new_nonce(new_nonces[j]), .reset(reset));
-//	end
-//   endgenerate
 
    output [3:0] led;
    //assign led[0] = |golden_nonce;
